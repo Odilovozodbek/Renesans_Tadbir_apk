@@ -1,0 +1,56 @@
+name: Build and publish Android demo APK
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'download/*.apk'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Build APK
+        run: gradle --no-daemon assembleDebug
+
+      - name: Confirm APK exists
+        run: test -s app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Save workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Renesans_Tadbir.apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Add APK to repository for direct download
+        run: |
+          mkdir -p download
+          cp app/build/outputs/apk/debug/app-debug.apk download/Renesans_Tadbir.apk
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f download/Renesans_Tadbir.apk
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Publish Android demo APK"
+          git push
