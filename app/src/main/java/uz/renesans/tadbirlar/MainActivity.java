@@ -5,11 +5,14 @@ import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
+import android.graphics.Insets;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Build;
 import android.print.PrintAttributes;
 import android.print.PrintManager;
 import android.view.ViewGroup;
+import android.view.WindowInsets;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -87,8 +90,27 @@ public final class MainActivity extends Activity {
             }
         });
 
-        setContentView(webView, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        // Android 15+ enforces edge-to-edge for target SDK 35. Keep the
+        // WebView viewport clear of system bars, cutouts and the keyboard.
+        if (Build.VERSION.SDK_INT >= 35) {
+            getWindow().setDecorFitsSystemWindows(false);
+            FrameLayout root = new FrameLayout(this);
+            root.setBackgroundColor(Color.rgb(16, 27, 53));
+            root.addView(webView, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            root.setOnApplyWindowInsetsListener((view, insets) -> {
+                Insets safe = insets.getInsets(WindowInsets.Type.systemBars()
+                        | WindowInsets.Type.displayCutout() | WindowInsets.Type.ime());
+                view.setPadding(safe.left, safe.top, safe.right, safe.bottom);
+                // Insets are handled by the native container, not the web page.
+                return WindowInsets.CONSUMED;
+            });
+            setContentView(root);
+            root.requestApplyInsets();
+        } else {
+            setContentView(webView, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        }
         webView.loadUrl("https://" + APP_HOST + "/assets/site/index.html");
     }
 
